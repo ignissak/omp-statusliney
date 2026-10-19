@@ -1,8 +1,8 @@
 # omp-statusliney
 
-A fully customizable statusline for [Oh My Pi](https://omp.sh) (`omp`). It replaces the built-in statusline completely, including the startup prepaint, and draws a multi-line bar like ccstatusline. It keeps all 27 built-in segments and adds 25 new widgets.
+![A two-line statusliney bar: model, path, git branch and diff stats on line one; context bar, token counts, cache hit rate and cost on line two](docs/social-preview.png)
 
-![A two-line statusliney bar: model, path, git branch and diff stats on line one; context bar, token counts, cache hit rate and cost on line two](docs/statusline.png)
+A fully customizable statusline for [Oh My Pi](https://omp.sh) (`omp`). It replaces the built-in statusline completely, including the startup prepaint, and draws a multi-line bar like ccstatusline. It keeps all 27 built-in segments and adds 25 new widgets.
 
 ## Requirements
 
@@ -75,15 +75,15 @@ The bar follows omp's theme and symbol preset (all glyphs and colors come from t
 
 ### Widgets
 
-| Category | Widgets |
-|---|---|
+| Category     | Widgets                                                                                                               |
+| ------------ | --------------------------------------------------------------------------------------------------------------------- |
 | omp built-in | every built-in segment (`pi`, `model`, `path`, `git`, `pr`, `cost`, `context_pct`, `session_name`, `usage`, `vim`, …) |
-| Git | `git_ahead_behind`, `git_sha`, `git_changes`, `git_stash`, `git_clean` |
-| Context | `context_gauge` (the built-in context rule), `context_bar`, `context_remaining`, `quota_bar` |
-| Session | `cost_rate`, `turns`, `compactions`, `session_clock`, `tool` |
-| Environment | `jobs`, `thinking`, `provider`, `omp_version`, `terminal_width`, `memory` |
-| Custom | `text`, `custom_command` (first output line, cached), `link` (OSC 8) |
-| Layout | `separator`, `flex` |
+| Git          | `git_ahead_behind`, `git_sha`, `git_changes`, `git_stash`, `git_clean`                                                |
+| Context      | `context_gauge` (the built-in context rule), `context_bar`, `context_remaining`, `quota_bar`                          |
+| Session      | `cost_rate`, `turns`, `compactions`, `session_clock`, `tool`                                                          |
+| Environment  | `jobs`, `thinking`, `provider`, `omp_version`, `terminal_width`, `memory`                                             |
+| Custom       | `text`, `custom_command` (first output line, cached), `link` (OSC 8)                                                  |
+| Layout       | `separator`, `flex`                                                                                                   |
 
 ## Local development
 
@@ -120,17 +120,17 @@ bun run typecheck   # tsc --noEmit
 
 ### Project layout
 
-| Path | Purpose |
-|---|---|
-| `src/index.ts` | Plugin entry: events, ticker, `/statusliney-settings` command |
-| `src/takeover.ts` | Patches omp's `StatusLineComponent`, captures the live segment context, scrubs the startup cache |
-| `src/frame.ts` | Placement, surfaces, hook rows, per-frame rendering |
-| `src/layout.ts` | Pure line layout: groups, separators, flex fill, overflow |
-| `src/config.ts`, `src/store.ts` | Config schema, validation, atomic save, file watch |
-| `src/presets.ts` | Built-in mirror and named presets |
-| `src/widgets/` | Widget contract, registry and widget implementations |
-| `src/ui/` | Settings overlay and its views |
-| `test/` | Bun tests |
+| Path                            | Purpose                                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `src/index.ts`                  | Plugin entry: events, ticker, `/statusliney-settings` command                                    |
+| `src/takeover.ts`               | Patches omp's `StatusLineComponent`, captures the live segment context, scrubs the startup cache |
+| `src/frame.ts`                  | Placement, surfaces, hook rows, per-frame rendering                                              |
+| `src/layout.ts`                 | Pure line layout: groups, separators, flex fill, overflow                                        |
+| `src/config.ts`, `src/store.ts` | Config schema, validation, atomic save, file watch                                               |
+| `src/presets.ts`                | Built-in mirror and named presets                                                                |
+| `src/widgets/`                  | Widget contract, registry and widget implementations                                             |
+| `src/ui/`                       | Settings overlay and its views                                                                   |
+| `test/`                         | Bun tests                                                                                        |
 
 ### Debugging
 
