@@ -8,7 +8,7 @@ const WATCH_DEBOUNCE_MS = 150;
 
 /** Owns the config file: load, debounced atomic save, external-edit watch, and a transient preview. */
 export class ConfigStore {
-	readonly warnings: string[] = [];
+	readonly #warnings: string[] = [];
 	#config: StatuslineyConfig;
 	#preview: StatuslineyConfig | undefined;
 	#readOnlyUntilEdit = false;
@@ -26,38 +26,44 @@ export class ConfigStore {
 		this.#config = normalizeConfig({}, fallbackLines).config;
 	}
 
-	get readOnlyUntilEdit(): boolean {
-		return this.#readOnlyUntilEdit;
+	/** Warnings collected since the last call (load, external edits); the caller shows them. */
+	takeWarnings(): string[] {
+		return this.#warnings.splice(0);
 	}
 
 	load(): void {
-		let text: string | undefined;
+		let text: string;
 		try {
 			text = fs.readFileSync(this.filePath, "utf8");
-		} catch {
-			text = undefined;
-		}
-		if (text === undefined) {
+		} catch (error) {
 			this.#config = normalizeConfig({}, this.fallbackLines).config;
-			this.#writeNow();
-		} else {
-			let raw: unknown;
-			try {
-				raw = JSON.parse(text);
-			} catch {
+			if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+				this.#writeNow();
+			} else {
 				this.#readOnlyUntilEdit = true;
-				this.#config = normalizeConfig({}, this.fallbackLines).config;
-				this.warnings.push(
-					`statusliney: ${this.filePath} is invalid JSON; using built-in layout until you edit settings`,
+				this.#warnings.push(
+					`statusliney: cannot read ${this.filePath} (${String(error)}); using built-in layout until you edit settings`,
 				);
-				this.#watch();
-				return;
 			}
-			const { config, warnings } = normalizeConfig(raw, this.fallbackLines);
-			this.#config = config;
-			this.warnings.push(...warnings);
-			this.#lastWritten = text;
+			this.#watch();
+			return;
 		}
+		let raw: unknown;
+		try {
+			raw = JSON.parse(text);
+		} catch {
+			this.#readOnlyUntilEdit = true;
+			this.#config = normalizeConfig({}, this.fallbackLines).config;
+			this.#warnings.push(
+				`statusliney: ${this.filePath} is invalid JSON; using built-in layout until you edit settings`,
+			);
+			this.#watch();
+			return;
+		}
+		const { config, warnings } = normalizeConfig(raw, this.fallbackLines);
+		this.#config = config;
+		this.#warnings.push(...warnings);
+		this.#lastWritten = text;
 		this.#watch();
 	}
 
@@ -143,7 +149,7 @@ export class ConfigStore {
 			this.#watcher = fs.watch(dir, (_event, filename) => {
 				if (filename !== base) return;
 				clearTimeout(this.#watchTimer);
-				this.#watchTimer = setTimeout(() => this.#reloadFromDisk(), WATCH_DEBOUNCE_MS);
+				this.#watchTimer = setTimeout(() => this.reload(), WATCH_DEBOUNCE_MS);
 				this.#watchTimer.unref?.();
 			});
 			this.#watcher.unref?.();
@@ -152,7 +158,8 @@ export class ConfigStore {
 		}
 	}
 
-	#reloadFromDisk(): void {
+	/** Re-read the file after an external edit; unusable edits keep the current config and warn. */
+	reload(): void {
 		let text: string;
 		try {
 			text = fs.readFileSync(this.filePath, "utf8");
@@ -166,13 +173,26 @@ export class ConfigStore {
 		} catch {
 			if (!this.#warnedInvalidWatch) {
 				this.#warnedInvalidWatch = true;
-				logger.warn("statusliney: ignoring invalid external config edit", { path: this.filePath });
+				this.#warn(`statusliney: ignoring invalid JSON in ${this.filePath}; keeping the current layout`);
 			}
 			return;
 		}
+		const { config, warnings, linesFallback } = normalizeConfig(raw, this.fallbackLines);
+		if (linesFallback) {
+			this.#warn(`statusliney: ${this.filePath} has unusable "lines"; keeping the current layout`);
+			return;
+		}
+		for (const warning of warnings) this.#warn(warning);
+		this.#warnedInvalidWatch = false;
 		this.#lastWritten = text;
 		this.#readOnlyUntilEdit = false;
-		this.#config = normalizeConfig(raw, this.fallbackLines).config;
+		this.#config = config;
+		this.#emit();
+	}
+
+	#warn(message: string): void {
+		logger.warn(message);
+		this.#warnings.push(message);
 		this.#emit();
 	}
 }

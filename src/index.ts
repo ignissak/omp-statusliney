@@ -54,25 +54,34 @@ function setup(pi: ExtensionAPI): void {
 		ticker.unref?.();
 	};
 
+	let notify: ((message: string) => void) | undefined;
+	const flushWarnings = (): void => {
+		if (!notify) return;
+		for (const warning of store.takeWarnings()) notify(warning);
+	};
+
 	store.onChange(() => {
+		flushWarnings();
 		if (!supported) return;
 		refreshInjection();
 		if (ticker) startTicker();
 		renderer.requestRender();
 	});
 
-	let warned = false;
+	let warnedUnsupported = false;
 	const attach = (ctx: ExtensionContext): void => {
 		if (ctx.agent?.kind === "sub") return;
 		data.sessionManager = ctx.sessionManager;
 		if (!isInteractive(ctx)) return;
+		notify = message => ctx.ui.notify(message, "warning");
 		if (!supported) {
-			if (!warned) {
-				warned = true;
-				ctx.ui.notify(`statusliney: unsupported omp internals (${VERSION}); built-in statusline kept`, "warning");
+			if (!warnedUnsupported) {
+				warnedUnsupported = true;
+				notify(`statusliney: unsupported omp internals (${VERSION}); built-in statusline kept`);
 			}
 			return;
 		}
+		takeoverState().notify = notify;
 		if (takeoverState().renderer !== renderer) {
 			installTakeover(renderer);
 			refreshInjection();
@@ -85,10 +94,7 @@ function setup(pi: ExtensionAPI): void {
 			},
 			{ placement: "aboveEditor" },
 		);
-		if (!warned) {
-			warned = true;
-			for (const warning of store.warnings) ctx.ui.notify(warning, "warning");
-		}
+		flushWarnings();
 		startTicker();
 	};
 

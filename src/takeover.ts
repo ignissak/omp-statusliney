@@ -1,7 +1,13 @@
 import { Database } from "bun:sqlite";
 import * as fs from "node:fs";
 import { statusLineHost } from "@oh-my-pi/pi-coding-agent/modes/status-line-host";
-import { type ComposerStyle, type TUI, visibleWidth } from "@oh-my-pi/pi-tui";
+import {
+	type ComposerStyle,
+	isNativeRendering,
+	onNativeRenderingChange,
+	type TUI,
+	visibleWidth,
+} from "@oh-my-pi/pi-tui";
 import {
 	SEGMENTS,
 	type SegmentContext,
@@ -56,7 +62,17 @@ export interface TakeoverState {
 	tui?: TUI;
 	capture: { active: boolean; ctx?: SegmentContext };
 	frameCtx?: { inst: Proto; ctx: SegmentContext | undefined };
+	/** Whether the last context capture found the live SegmentContext. */
+	captureOk?: boolean;
+	/** Consecutive failed frames (renderer threw or capture found nothing). */
+	failures: number;
+	/** Set after repeated failures: every patch delegates to the built-in statusline. */
+	disabled?: boolean;
+	/** Shows a warning in the TUI; set by the plugin once a UI context exists. */
+	notify?: (message: string) => void;
 }
+
+const MAX_FAILURES = 3;
 
 const STATE_KEY = Symbol.for("omp-statusliney.takeover");
 
@@ -71,6 +87,7 @@ export function takeoverState(): TakeoverState {
 		seen: new WeakSet(),
 		slots: new WeakMap(),
 		capture: { active: false },
+		failures: 0,
 	};
 	return global[STATE_KEY];
 }
@@ -104,8 +121,55 @@ export function canTakeOver(): boolean {
 	);
 }
 
-function emptyLayout(settings: StatusLineSettings): StatusLineSettings {
-	return { ...settings, preset: "custom", leftSegments: [], rightSegments: [], showHookStatus: false };
+/**
+ * Settings handed to the built-in component: an empty layout plus the segment
+ * ids whose data sources must stay alive. Real settings pass through while a
+ * native TSP surface renders (it describes the bar itself) or after the
+ * takeover disabled itself.
+ */
+export function injectedSettings(settings: StatusLineSettings, required: StatusLineSegmentId[]): StatusLineSettings {
+	if (takeoverState().disabled || isNativeRendering()) return settings;
+	return { ...settings, preset: "custom", leftSegments: required, rightSegments: [], showHookStatus: false };
+}
+
+function disable(reason: string): void {
+	const state = takeoverState();
+	if (state.disabled) return;
+	state.disabled = true;
+	const message = `statusliney: ${reason}; built-in statusline restored`;
+	logger.warn(message);
+	const inst = state.lastInstance;
+	if (inst && state.originals) {
+		try {
+			state.originals.updateSettings.call(inst, state.userSettings.get(inst) ?? realStatusLineSettings());
+		} catch (error) {
+			logger.debug("statusliney: restoring built-in settings failed", { error: String(error) });
+		}
+	}
+	state.notify?.(message);
+	state.tui?.requestRender();
+}
+
+function noteFailure(reason: string): void {
+	const state = takeoverState();
+	state.failures++;
+	if (state.failures >= MAX_FAILURES) disable(reason);
+}
+
+/** Run a renderer entry; failures yield `empty`, and the built-in takes over once disabled. */
+function guarded<T>(inst: Proto, builtin: () => T, empty: T, render: (renderer: Renderer) => T): T {
+	const state = takeoverState();
+	if (state.disabled || !state.renderer) return builtin();
+	firstSight(inst);
+	try {
+		const out = render(state.renderer);
+		if (state.captureOk !== false) state.failures = 0;
+		return out;
+	} catch (error) {
+		logger.debug("statusliney: render failed", { error: String(error) });
+		noteFailure(`rendering failed (${String(error)})`);
+		return empty;
+	}
 }
 
 function firstSight(inst: Proto): void {
@@ -153,15 +217,13 @@ export function installTakeover(renderer: Renderer): void {
 	};
 	state.originals = originals;
 
-	statusLineHost.getSettings = () => emptyLayout(originals.getSettings());
+	statusLineHost.getSettings = () => injectedSettings(originals.getSettings(), []);
+	onNativeRenderingChange(() => refreshInjection());
 
 	proto.updateSettings = function (this: Proto, settings: StatusLineSettings): void {
 		const s = takeoverState();
 		s.userSettings.set(this, settings);
-		originals.updateSettings.call(this, {
-			...emptyLayout(settings),
-			leftSegments: s.renderer?.requiredSegments() ?? ["session"],
-		});
+		originals.updateSettings.call(this, injectedSettings(settings, s.renderer?.requiredSegments() ?? ["session"]));
 	};
 	proto.setComposerStyle = function (this: Proto, style: ComposerStatusStyle): void {
 		takeoverState().styles.set(this, style);
@@ -178,33 +240,59 @@ export function installTakeover(renderer: Renderer): void {
 		if (s.capture.active) s.capture.ctx = ctx;
 		return originals.describeSession(ctx);
 	};
-	proto.getBandTopBorder = function (this: Proto, width: number): SlotResult {
-		firstSight(this);
-		return slotResult(this, "band", takeoverState().renderer?.slot(this, "band", width) ?? "");
+	proto.getBandTopBorder = function (this: Proto, width: number, previewTitle?: string): SlotResult {
+		const content = guarded(
+			this,
+			() => originals.getBandTopBorder.call(this, width, previewTitle).content,
+			"",
+			renderer => renderer.slot(this, "band", width),
+		);
+		return slotResult(this, "band", content);
 	};
-	proto.getTopBorder = function (this: Proto, width: number): SlotResult {
-		firstSight(this);
-		return slotResult(this, "box", takeoverState().renderer?.slot(this, "box", width) ?? "");
+	proto.getTopBorder = function (this: Proto, width: number, previewTitle?: string): SlotResult {
+		const content = guarded(
+			this,
+			() => originals.getTopBorder.call(this, width, previewTitle).content,
+			"",
+			renderer => renderer.slot(this, "box", width),
+		);
+		return slotResult(this, "box", content);
 	};
-	proto.getStandaloneTopBorder = function (this: Proto): SlotResult {
-		firstSight(this);
-		return { content: "", width: 0, revision: 0 };
+	proto.getStandaloneTopBorder = function (this: Proto, width: number, previewTitle?: string): SlotResult {
+		return guarded(
+			this,
+			() => originals.getStandaloneTopBorder.call(this, width, previewTitle),
+			{ content: "", width: 0, revision: 0 },
+			() => ({ content: "", width: 0, revision: 0 }),
+		);
 	};
 	proto.render = function (this: Proto, width: number): readonly string[] {
-		firstSight(this);
-		return takeoverState().renderer?.bottom(this, width) ?? [];
+		return guarded(
+			this,
+			() => originals.render.call(this, width),
+			[],
+			renderer => renderer.bottom(this, width),
+		);
 	};
-	proto.renderBottomBar = function (this: Proto, width: number): string {
-		firstSight(this);
-		return takeoverState().renderer?.bottom(this, width).find(line => line !== "") ?? "";
+	proto.renderBottomBar = function (this: Proto, width: number, groups: "left" | "full", previewTitle?: string): string {
+		return guarded(
+			this,
+			() => originals.renderBottomBar.call(this, width, groups, previewTitle),
+			"",
+			renderer => renderer.bottom(this, width).find(line => line !== "") ?? "",
+		);
 	};
 	proto.getPreviewLines = function (
 		this: Proto,
 		width: number,
 		style?: Pick<ComposerStyle, "statusAttachment" | "bottomBar">,
 	): string[] {
-		firstSight(this);
-		return takeoverState().renderer?.previewForStyle(this, width, style) ?? [];
+		return guarded(
+			this,
+			() => originals.getPreviewLines.call(this, width, style),
+			[],
+			renderer => renderer.previewForStyle(this, width, style),
+		);
 	};
 }
 
@@ -226,6 +314,8 @@ export function captureContext(inst: Proto): SegmentContext | undefined {
 	}
 	const ctx = state.capture.ctx;
 	state.capture.ctx = undefined;
+	state.captureOk = ctx !== undefined || isNativeRendering();
+	if (!state.captureOk) noteFailure("cannot read the live statusline context (unsupported omp internals)");
 	state.frameCtx = { inst, ctx };
 	queueMicrotask(() => {
 		state.frameCtx = undefined;

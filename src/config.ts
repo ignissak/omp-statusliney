@@ -118,21 +118,29 @@ function normalizeItem(raw: unknown, warnings: string[]): WidgetItem | undefined
 export function normalizeConfig(
 	raw: unknown,
 	fallbackLines: () => WidgetItem[][],
-): { config: StatuslineyConfig; warnings: string[] } {
+): { config: StatuslineyConfig; warnings: string[]; linesFallback: boolean } {
 	const warnings: string[] = [];
 	const source = isRecord(raw) ? raw : {};
-	let lines: WidgetItem[][];
-	if (Array.isArray(source.lines) && source.lines.every(line => Array.isArray(line))) {
-		const rawLines: unknown[][] = source.lines;
-		if (rawLines.length > MAX_LINES) warnings.push(`statusliney: only the first ${MAX_LINES} lines are used`);
-		lines = rawLines.slice(0, MAX_LINES).map(line => {
+	let lines: WidgetItem[][] = [];
+	const linesFallback = !Array.isArray(source.lines);
+	if (Array.isArray(source.lines)) {
+		const rawLines: unknown[] = source.lines;
+		for (const [index, line] of rawLines.entries()) {
+			if (!Array.isArray(line)) {
+				warnings.push(`statusliney: line ${index + 1} is not a list of widgets; dropped`);
+				continue;
+			}
+			if (lines.length === MAX_LINES) {
+				warnings.push(`statusliney: only the first ${MAX_LINES} lines are used`);
+				break;
+			}
 			const items: WidgetItem[] = [];
 			for (const entry of line) {
 				const item = normalizeItem(entry, warnings);
 				if (item) items.push(item);
 			}
-			return items;
-		});
+			lines.push(items);
+		}
 		if (lines.length === 0) lines = [[]];
 	} else {
 		if (source.lines !== undefined) warnings.push("statusliney: invalid lines; using the built-in layout");
@@ -150,5 +158,6 @@ export function normalizeConfig(
 			lines,
 		},
 		warnings,
+		linesFallback,
 	};
 }

@@ -70,7 +70,7 @@ describe("ConfigStore", () => {
 		const store = new ConfigStore(file, fallback);
 		store.load();
 		expect(store.get().lines).toEqual(fallback());
-		expect(store.warnings.some(w => w.includes("invalid JSON"))).toBe(true);
+		expect(store.takeWarnings().some(w => w.includes("invalid JSON"))).toBe(true);
 		store.dispose();
 		expect(fs.readFileSync(file, "utf8")).toBe("{ not json");
 	});

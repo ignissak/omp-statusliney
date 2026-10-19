@@ -22,8 +22,11 @@ function runCommand(env: RenderEnv, command: string, timeout: number, cacheMs: n
 	}
 	const exec = env.data.exec;
 	const now = Date.now();
-	if (exec && !entry.inFlight && (entry.fetchedAt === 0 || now - entry.fetchedAt >= cacheMs)) {
+	// Never re-run faster than the repaint ticker: every result triggers a repaint.
+	const ttl = Math.max(cacheMs, env.data.getConfig().refreshMs);
+	if (exec && !entry.inFlight && (entry.fetchedAt === 0 || now - entry.fetchedAt >= ttl)) {
 		const target = entry;
+		const previous = target.value;
 		target.inFlight = true;
 		target.fetchedAt = now;
 		exec("sh", ["-c", command], { cwd: getProjectDir(), timeout })
@@ -42,7 +45,7 @@ function runCommand(env: RenderEnv, command: string, timeout: number, cacheMs: n
 			})
 			.finally(() => {
 				target.inFlight = false;
-				env.requestRender();
+				if (target.value !== previous) env.requestRender();
 			});
 	}
 	if (entry.value === undefined) return undefined;

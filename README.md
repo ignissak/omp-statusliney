@@ -33,7 +33,7 @@ omp plugin doctor   # should list "plugin:omp-statusliney: v0.1.0"
 omp                 # the new bar replaces the built-in one
 ```
 
-On first launch the plugin writes `~/.omp/agent/statusliney.json` with a layout that copies your current built-in statusline, so the bar looks the same until you change it.
+On first launch the plugin writes `~/.omp/agent/statusliney.json` with a layout built from your current built-in statusline segments. On the band and box composers it looks the same as the built-in bar. On shapes where the bar sits below the prompt, it uses your configured separator instead of the built-in plain dots.
 
 ### Uninstall
 
@@ -118,5 +118,5 @@ bun run typecheck   # tsc --noEmit
 ### Debugging
 
 - Plugin messages go to omp's log file, `~/.omp/logs/omp.<DATE>.<PID>.log`, which records every level by default. Filter with `grep statusliney`. Set `OMP_LOG_LEVEL` (`error|warn|info|debug`) to limit what is written.
-- The plugin patches omp internals. If an omp release changes them, the plugin leaves the built-in bar in place and shows a `statusliney: unsupported omp internals` warning. Fix the patch targets in `src/takeover.ts` (`canTakeOver`).
-- Native TSP terminals (composer facts) are not affected by the plugin.
+- The plugin patches omp internals. If an omp release removes a member it patches, the plugin leaves the built-in bar in place and shows a `statusliney: unsupported omp internals` warning. If rendering keeps failing at runtime (three frames in a row), it restores the built-in bar and warns. Fix the patch targets in `src/takeover.ts` (`canTakeOver`).
+- On native TSP terminals the plugin passes your real settings through, so the terminal's own statusline is unchanged.
