@@ -2,6 +2,8 @@
 
 A fully customizable statusline for [Oh My Pi](https://omp.sh) (`omp`). It replaces the built-in statusline completely, including the startup prepaint, and draws a multi-line bar like ccstatusline. It keeps all 27 built-in segments and adds 25 new widgets.
 
+![A two-line statusliney bar: model, path, git branch and diff stats on line one; context bar, token counts, cache hit rate and cost on line two](docs/statusline.png)
+
 ## Requirements
 
 - omp `>=18.12.2 <19`
