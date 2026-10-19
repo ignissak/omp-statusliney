@@ -11,16 +11,29 @@ A fully customizable statusline for [Oh My Pi](https://omp.sh) (`omp`). It repla
 
 ## Installation
 
+omp-statusliney is an omp plugin. It does not work in upstream pi, because it hooks into omp's own statusline.
+
 ### From npm
 
 ```sh
 omp plugin install omp-statusliney
 ```
 
+### From the omp marketplace
+
+This repository is also an omp marketplace catalog (`.omp-plugin/marketplace.json`):
+
+```sh
+omp plugin marketplace add ignissak/omp-statusliney
+omp plugin install omp-statusliney@ignissak
+```
+
+Marketplace installs track the `main` branch. Use `omp plugin upgrade omp-statusliney@ignissak` to update.
+
 ### From a local checkout
 
 ```sh
-git clone <repo-url> omp-statusliney
+git clone https://github.com/ignissak/omp-statusliney.git
 cd omp-statusliney
 bun install
 omp plugin link "$PWD"
@@ -28,10 +41,12 @@ omp plugin link "$PWD"
 
 `omp plugin link` points omp at the checkout, so later source changes take effect the next time omp starts.
 
+Install omp-statusliney only one way at a time. omp refuses a second copy of a package it already has.
+
 ### Check the install
 
 ```sh
-omp plugin doctor   # should list "plugin:omp-statusliney: v0.1.0"
+omp plugin doctor   # should list "plugin:omp-statusliney"
 omp                 # the new bar replaces the built-in one
 ```
 
@@ -122,3 +137,33 @@ bun run typecheck   # tsc --noEmit
 - Plugin messages go to omp's log file, `~/.omp/logs/omp.<DATE>.<PID>.log`, which records every level by default. Filter with `grep statusliney`. Set `OMP_LOG_LEVEL` (`error|warn|info|debug`) to limit what is written.
 - The plugin patches omp internals. If an omp release removes a member it patches, the plugin leaves the built-in bar in place and shows a `statusliney: unsupported omp internals` warning. If rendering keeps failing at runtime (three frames in a row), it restores the built-in bar and warns. Fix the patch targets in `src/takeover.ts` (`canTakeOver`).
 - On native TSP terminals the plugin passes your real settings through, so the terminal's own statusline is unchanged.
+
+## Releasing
+
+Releases are automated by `.github/workflows/release.yml`. To release, bump `version` in `package.json` and push it to `main`:
+
+```sh
+npm version minor --no-git-tag-version   # or patch / major, or edit package.json by hand
+git commit -am "chore(release): 1.1.0"
+git push
+```
+
+The workflow then:
+
+1. Runs the tests and the type check.
+2. Publishes the version to npm with provenance, unless it is already there.
+3. Creates the tag `v<version>` and a GitHub release. The release notes come from the commits since the previous tag, grouped by their Conventional Commit type (breaking changes, features, fixes, other). Version-bump commits are left out.
+
+Each step skips itself if it is already done, so a failed run can simply be re-run. Preview the notes locally with `bun scripts/release-notes.ts v1.1.0`.
+
+The npm package carries the `pi-package` keyword and a `pi.image` preview, so it also appears in the [pi package gallery](https://pi.dev/packages) once it is on npm.
+
+### One-time setup
+
+npm only allows trusted publishing for a package that already exists, so the first version is published by hand:
+
+1. `npm login`, then `npm publish --access public` from a clean checkout of `main`.
+2. On npmjs.com, open the package's **Settings → Trusted publishing** and add GitHub Actions with repository `ignissak/omp-statusliney` and workflow `release.yml`.
+3. Push `main`, or run the **Release** workflow by hand. It sees the version already on npm, so it only creates the tag and the release.
+
+After that, no npm token is needed: the workflow authenticates through GitHub's OIDC token.

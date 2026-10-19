@@ -1,0 +1,21 @@
+{
+  "name": "ignissak",
+  "owner": {
+    "name": "ignissak"
+  },
+  "metadata": {
+    "description": "omp plugins by ignissak"
+  },
+  "plugins": [
+    {
+      "name": "omp-statusliney",
+      "source": "./",
+      "description": "Fully customizable statusline for Oh My Pi (omp)",
+      "homepage": "https://github.com/ignissak/omp-statusliney",
+      "repository": "https://github.com/ignissak/omp-statusliney",
+      "license": "MIT",
+      "keywords": ["statusline", "omp-plugin"],
+      "category": "ui"
+    }
+  ]
+}

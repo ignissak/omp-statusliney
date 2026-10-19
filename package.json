@@ -11,11 +11,22 @@
     "statusline",
     "pi-package"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ignissak/omp-statusliney.git"
+  },
+  "homepage": "https://github.com/ignissak/omp-statusliney#readme",
+  "bugs": {
+    "url": "https://github.com/ignissak/omp-statusliney/issues"
+  },
   "omp": {
     "description": "Replaces the omp statusline with a configurable multi-line bar",
     "extensions": [
       "./src/index.ts"
     ]
+  },
+  "pi": {
+    "image": "https://raw.githubusercontent.com/ignissak/omp-statusliney/main/docs/statusline.png"
   },
   "files": [
     "src",

@@ -1,0 +1,75 @@
+name: Release
+
+# Bumping "version" in package.json on main releases it: npm publish, tag v<version>,
+# and a GitHub release whose notes are generated from the commits since the last tag.
+# Every step is idempotent, so a failed run can simply be re-run.
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write # tag + GitHub release
+  id-token: write # npm trusted publishing (OIDC) and provenance
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # ships npm >= 11.5.1, required for trusted publishing
+          registry-url: https://registry.npmjs.org
+
+      - name: Read version
+        id: version
+        run: |
+          version=$(jq -r .version package.json)
+          name=$(jq -r .name package.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+          fi
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install
+        if: steps.version.outputs.tagged == 'false' || steps.version.outputs.published == 'false'
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        if: steps.version.outputs.tagged == 'false' || steps.version.outputs.published == 'false'
+        run: |
+          bun test
+          bun run typecheck
+
+      - name: Publish to npm
+        if: steps.version.outputs.published == 'false'
+        run: npm publish --provenance --access public
+
+      - name: Tag and GitHub release
+        if: steps.version.outputs.tagged == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          bun scripts/release-notes.ts "$TAG" > release-notes.md
+          cat release-notes.md
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file release-notes.md
