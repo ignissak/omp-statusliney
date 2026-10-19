@@ -1,6 +1,6 @@
 {
   "name": "omp-statusliney",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Fully customizable statusline for Oh My Pi (omp)",
   "type": "module",
   "license": "MIT",
