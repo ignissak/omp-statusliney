@@ -5,8 +5,8 @@ import type { FrameRenderer } from "../frame";
 import type { ConfigStore } from "../store";
 import { MainView, type Nav, type View } from "./views";
 
-/** Full-width overlay: live preview box, the current view, and its key hints. */
-class SettingsOverlay implements Component {
+/** Takes the input editor's place: live preview box, the current view, and its key hints. */
+class SettingsPanel implements Component {
 	readonly #stack: View[] = [];
 	readonly #nav: Nav;
 
@@ -77,9 +77,9 @@ class SettingsOverlay implements Component {
 }
 
 export async function openSettings(ctx: ExtensionContext, store: ConfigStore, renderer: FrameRenderer): Promise<void> {
-	await ctx.ui.custom<void>(
-		(tui, theme, _keybindings, done) => new SettingsOverlay(tui, theme, store, renderer, () => done(undefined)),
-		{ overlay: true, overlayOptions: { anchor: "top-left", width: "100%", maxHeight: "75%", margin: 0 } },
+	// No overlay: the panel replaces the input editor until it closes, like omp's own pickers.
+	await ctx.ui.custom<void>((tui, theme, _keybindings, done) =>
+		new SettingsPanel(tui, theme, store, renderer, () => done(undefined)),
 	);
 	store.setPreview(undefined);
 }
