@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+	* { box-sizing: border-box; margin: 0; padding: 0; }
+	html, body { width: 1280px; height: 640px; }
+	body {
+		font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+		color: #e6edf3;
+		background:
+			radial-gradient(900px 500px at 85% -10%, rgba(88, 166, 255, 0.22), transparent 60%),
+			radial-gradient(700px 420px at -5% 110%, rgba(163, 113, 247, 0.20), transparent 60%),
+			#0d1117;
+		overflow: hidden;
+		position: relative;
+	}
+	.mono { font-family: "SF Mono", Menlo, "JetBrains Mono", Consolas, monospace; }
+	.content { position: absolute; left: 80px; top: 70px; right: 80px; }
+	.eyebrow {
+		font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase;
+		color: #8b949e; font-weight: 600;
+	}
+	.eyebrow b { color: #58a6ff; font-weight: 700; }
+	h1 {
+		margin-top: 14px; font-size: 84px; line-height: 1; font-weight: 700; letter-spacing: -0.02em;
+	}
+	h1 .accent { color: #58a6ff; }
+	.tagline { margin-top: 20px; font-size: 32px; color: #c9d1d9; font-weight: 500; }
+	.chips { margin-top: 26px; display: flex; gap: 12px; }
+	.chip {
+		font-size: 20px; padding: 8px 16px; border-radius: 999px;
+		background: rgba(110, 118, 129, 0.18); border: 1px solid rgba(240, 246, 252, 0.10); color: #c9d1d9;
+	}
+	.terminal {
+		position: absolute; left: 80px; right: 80px; bottom: 56px;
+		border-radius: 14px; background: #161b22; border: 1px solid rgba(240, 246, 252, 0.12);
+		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+		overflow: hidden;
+	}
+	.titlebar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #1c2128; }
+	.dot { width: 12px; height: 12px; border-radius: 50%; }
+	.titlebar .name { margin-left: 12px; font-size: 14px; color: #8b949e; }
+	.screen { padding: 16px 20px 18px; font-size: 21px; line-height: 1.5; }
+	.bar { display: flex; align-items: center; white-space: pre; }
+	.seg { background: #262c36; padding: 0 2px; }
+	.sep { color: #6e7681; }
+	.gauge { flex: 1; color: #3b4a5e; overflow: hidden; letter-spacing: -1px; }
+	.c-thinking { color: #d2a8ff; }
+	.c-model { color: #e6edf3; }
+	.c-path { color: #79c0ff; }
+	.c-git { color: #e3b341; }
+	.c-add { color: #3fb950; }
+	.c-del { color: #f85149; }
+	.c-muted { color: #8b949e; }
+	.c-ctx { color: #58a6ff; }
+	.c-out { color: #d2a8ff; }
+	.c-cache { color: #3fb950; }
+	.c-cost { color: #d2a8ff; }
+	.prompt { color: #6e7681; }
+	.cursor { display: inline-block; width: 11px; height: 24px; background: #58a6ff; vertical-align: -5px; margin-left: 6px; }
+</style>
+</head>
+<body>
+	<div class="content">
+		<div class="eyebrow">Plugin for <b>Oh My Pi</b> (omp)</div>
+		<h1 class="mono">omp-<span class="accent">statusliney</span></h1>
+		<div class="tagline">A fully customizable, multi-line statusline for your coding agent.</div>
+		<div class="chips">
+			<div class="chip">27 built-in segments</div>
+			<div class="chip">25 new widgets</div>
+			<div class="chip">Live settings editor</div>
+			<div class="chip">Theme-aware</div>
+		</div>
+	</div>
+
+	<div class="terminal mono">
+		<div class="titlebar">
+			<div class="dot" style="background:#ff5f57"></div>
+			<div class="dot" style="background:#febc2e"></div>
+			<div class="dot" style="background:#28c840"></div>
+			<div class="name">omp — ~/code/omp-statusliney</div>
+		</div>
+		<div class="screen">
+			<div class="bar"><span class="seg"> <span class="c-thinking">[high]</span> <span class="c-model">Opus 5.5</span> <span class="sep">&gt;</span> <span class="c-path">[D] ~/code/omp-statusliney</span> <span class="sep">&gt;</span> <span class="c-git">@ main *1</span> <span class="sep">&gt;</span> <span class="c-add">+52</span> <span class="c-del">-52</span> </span><span class="gauge">────────────────────────────────────────────────────────────────────────────────────────────────</span></div>
+			<div class="bar"><span class="seg"> <span class="c-muted">ctx:</span> <span class="c-ctx">━━━</span><span class="prompt">───────</span> 28% <span class="sep">&gt;</span> <span class="c-muted">in:</span> 296 <span class="sep">&gt;</span> <span class="c-out">out: 133K</span> <span class="sep">&gt;</span> cache <span class="c-cache">98.22%</span> <span class="sep">&gt;</span> <span class="c-cost">$11.81 (+7.88)</span> </span></div>
+			<div class="bar"><span class="prompt">╰─</span><span class="cursor"></span></div>
+		</div>
+	</div>
+</body>
+</html>
